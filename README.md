@@ -9,7 +9,7 @@ Pathfinder retrieves relevant text chunks from a Qdrant vector store, injects th
 ## Features
 
 - **Semantic search** over website content via Qdrant vector similarity
-- **Domain & URL filtering** — scope answers to a specific website or URL prefix
+- **Multi-domain & URL filtering** — scope answers to one or more websites, or a URL prefix
 - **Provider-agnostic** — swap between Google Gemini and any OpenAI-compatible self-hosted model (Ollama, vLLM, etc.) with a single env var
 - **Health endpoint** with Qdrant connectivity check
 - **Docker Compose** setup for one-command deployment (API + Qdrant)
@@ -137,11 +137,23 @@ Ask a question. Returns an LLM-generated answer with source citations.
 }
 ```
 
-| Field      | Type     | Required | Description                              |
-| ---------- | -------- | -------- | ---------------------------------------- |
-| `question` | `string` | Yes      | The user's question (1 – 2000 chars)     |
-| `domain`   | `string` | No       | Filter results to a specific domain      |
-| `url`      | `string` | No       | Filter results to a specific URL prefix  |
+Search across multiple domains at once:
+
+```json
+{
+  "question": "Compare pricing plans",
+  "domains": ["example.com", "docs.example.com"]
+}
+```
+
+| Field      | Type       | Required | Description                                                       |
+| ---------- | ---------- | -------- | ----------------------------------------------------------------- |
+| `question` | `string`   | Yes      | The user's question (1 – 2000 chars)                              |
+| `domain`   | `string`   | No       | Filter results to a single domain                                 |
+| `domains`  | `string[]` | No       | Filter results to multiple domains (results match ANY listed)     |
+| `url`      | `string`   | No       | Filter results to a specific URL prefix                           |
+
+> `domain` and `domains` can be used together — they are merged into a single list.
 
 **Response:**
 

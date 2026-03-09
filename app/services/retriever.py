@@ -4,7 +4,7 @@ domain / URL filtering and returns ranked chunks with metadata.
 """
 
 from qdrant_client import QdrantClient
-from qdrant_client.models import Filter, FieldCondition, MatchValue, MatchText
+from qdrant_client.models import Filter, FieldCondition, MatchAny, MatchValue, MatchText
 from langchain_core.embeddings import Embeddings
 
 from app.config import Settings
@@ -20,21 +20,28 @@ def retrieve_chunks(
     embeddings: Embeddings,
     qdrant: QdrantClient,
     settings: Settings,
-    domain: str | None = None,
+    domains: list[str] | None = None,
     url: str | None = None,
 ) -> tuple[str, list[Source]]:
     """
     Embed the question, search Qdrant with optional domain/url filter,
     and return (context_string, list[Source]).
+
+    `domains` accepts a list of domains; results matching ANY of them are returned.
     """
     query_vector = embeddings.embed_query(question)
 
     # Build filter conditions
     must_conditions: list[FieldCondition] = []
-    if domain:
-        must_conditions.append(
-            FieldCondition(key="domain", match=MatchValue(value=domain))
-        )
+    if domains:
+        if len(domains) == 1:
+            must_conditions.append(
+                FieldCondition(key="domain", match=MatchValue(value=domains[0]))
+            )
+        else:
+            must_conditions.append(
+                FieldCondition(key="domain", match=MatchAny(any=domains))
+            )
     if url:
         must_conditions.append(
             FieldCondition(key="url", match=MatchText(text=url))
