@@ -1,6 +1,15 @@
+from enum import Enum
 from typing import Literal
 
 from pydantic import BaseModel, Field
+
+
+class Personality(str, Enum):
+    """Available chatbot personalities."""
+
+    librarian = "librarian"
+    storyteller = "storyteller"
+    admiral = "admiral"
 
 
 class ChatMessage(BaseModel):
@@ -21,6 +30,10 @@ class ChatRequest(BaseModel):
     url: str | None = Field(
         None,
         description="Filter results to a specific URL prefix",
+    )
+    personality: Personality | None = Field(
+        None,
+        description="Optional chatbot personality: 'librarian' (Lyra the Archivist — LMS), 'storyteller' (Nova the Weaver — blog), or 'admiral' (Admiral Orion — whole site). Defaults to the standard Pathfinder voice when omitted.",
     )
     history: list[ChatMessage] = Field(
         default_factory=list,
