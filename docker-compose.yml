@@ -7,8 +7,11 @@ services:
       - .env
     environment:
       - QDRANT_HOST=qdrant
+      - POSTGRES_HOST=postgres
     depends_on:
       qdrant:
+        condition: service_healthy
+      postgres:
         condition: service_healthy
     restart: unless-stopped
 
@@ -26,5 +29,23 @@ services:
       retries: 5
     restart: unless-stopped
 
+  postgres:
+    image: postgres:16-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: pathfinder
+      POSTGRES_PASSWORD: pathfinder
+      POSTGRES_DB: pathfinder
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pathfinder"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
 volumes:
   qdrant_data:
+  pg_data:

@@ -7,13 +7,14 @@ from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from langchain_core.prompts import ChatPromptTemplate
 
 from app.config import get_settings
-from app.dependencies import get_embeddings, get_llm, get_qdrant
+from app.dependencies import get_embeddings, get_llm, get_pg_pool, get_qdrant
 from app.models.schemas import (
     ChatRequest,
     ChatResponse,
     DomainListResponse,
     Personality,
 )
+from app.services.chat_log import log_chat
 from app.services.retriever import list_domains, retrieve_chunks
 
 router = APIRouter(prefix="/api", tags=["chat"])
@@ -71,6 +72,13 @@ PERSONALITY_PROMPTS: dict[Personality, str] = {
 }
 
 
+def _current_model(settings) -> str:
+    """Return the active LLM model name based on provider."""
+    if settings.LLM_PROVIDER == "gemini":
+        return settings.GEMINI_LLM_MODEL
+    return settings.SELFHOST_LLM_MODEL
+
+
 def _build_messages(system: str, history: list, question: str) -> list:
     """Build the message list from system prompt, history, and current question."""
     messages = [SystemMessage(content=system)]
@@ -107,10 +115,26 @@ async def chat(req: ChatRequest):
     )
 
     if not sources:
-        return ChatResponse(
-            answer="I couldn't find any relevant information from the website for your question.",
-            sources=[],
-        )
+        answer = "I couldn't find any relevant information from the website for your question."
+        # Fire-and-forget log — does not block the response
+        pool = get_pg_pool()
+        if pool:
+            log_chat(
+                pool,
+                question=req.question,
+                domains=all_domains,
+                url_filter=req.url,
+                personality=req.personality.value if req.personality else None,
+                history=[m.model_dump() for m in req.history],
+                retrieved_context=None,
+                sources=[],
+                system_prompt="",
+                messages=[],
+                answer=answer,
+                llm_provider=settings.LLM_PROVIDER,
+                llm_model=_current_model(settings),
+            )
+        return ChatResponse(answer=answer, sources=[])
 
     # Build messages with conversation history and invoke LLM
     system_text = SYSTEM_PROMPT.format(context=context)
@@ -129,6 +153,29 @@ async def chat(req: ChatRequest):
         content = "".join(
             block.get("text", "") if isinstance(block, dict) else str(block)
             for block in content
+        )
+
+    # Fire-and-forget log — does not block the response
+    pool = get_pg_pool()
+    if pool:
+        sources_dicts = [s.model_dump() for s in sources]
+        messages_dicts = [
+            {"role": type(m).__name__, "content": m.content} for m in messages
+        ]
+        log_chat(
+            pool,
+            question=req.question,
+            domains=all_domains,
+            url_filter=req.url,
+            personality=req.personality.value if req.personality else None,
+            history=[m.model_dump() for m in req.history],
+            retrieved_context=context,
+            sources=sources_dicts,
+            system_prompt=system_text,
+            messages=messages_dicts,
+            answer=content,
+            llm_provider=settings.LLM_PROVIDER,
+            llm_model=_current_model(settings),
         )
 
     return ChatResponse(answer=content, sources=sources)

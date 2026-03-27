@@ -27,6 +27,14 @@ class Settings(BaseSettings):
     RAG_TOP_K: int = 5
     RAG_SCORE_THRESHOLD: float = 0.5
 
+    # PostgreSQL (chat logging)
+    POSTGRES_HOST: str = "localhost"
+    POSTGRES_PORT: int = 5432
+    POSTGRES_USER: str = "pathfinder"
+    POSTGRES_PASSWORD: str = "pathfinder"
+    POSTGRES_DB: str = "pathfinder"
+    CHAT_LOG_RETENTION_DAYS: int = 14
+
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
 
 

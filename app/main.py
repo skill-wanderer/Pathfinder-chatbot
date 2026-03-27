@@ -8,9 +8,10 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_settings
-from app.dependencies import get_embeddings, get_llm, get_qdrant
+from app.dependencies import get_embeddings, get_llm, get_qdrant, set_pg_pool
 from app.models.schemas import HealthResponse
 from app.routers.chat import router as chat_router
+from app.services.chat_log import close_pool, init_pool
 
 
 @asynccontextmanager
@@ -19,7 +20,16 @@ async def lifespan(app: FastAPI):
     get_qdrant()
     get_embeddings()
     get_llm()
+
+    # Initialise PostgreSQL connection pool for chat logging
+    settings = get_settings()
+    pool = await init_pool(settings)
+    set_pg_pool(pool)
+
     yield
+
+    # Shutdown: cancel cleanup task and close the PG pool
+    await close_pool(pool)
 
 
 app = FastAPI(
